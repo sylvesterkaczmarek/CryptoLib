@@ -683,4 +683,42 @@ UTEST(EP_SA_MGMT, SA_STOP_SELF)
     free(buffer_STOP_b);
 }
 
+UTEST(EP_SA_MGMT, REPLY_NO_PACKET_HEADER_IS_NOT_EXECUTED)
+{
+    remove("sa_save_file.bin");
+    Crypto_Config_CryptoLib(KEY_TYPE_INTERNAL, MC_TYPE_INTERNAL, SA_TYPE_INMEMORY, CRYPTOGRAPHY_TYPE_LIBGCRYPT,
+                            IV_INTERNAL);
+    Crypto_Config_TC(CRYPTO_TC_CREATE_FECF_TRUE, TC_PROCESS_SDLS_PDUS_TRUE, TC_NO_PUS_HDR, TC_IGNORE_ANTI_REPLAY_TRUE,
+                     TC_IGNORE_SA_STATE_FALSE, TC_UNIQUE_SA_PER_MAP_ID_FALSE, TC_CHECK_FECF_TRUE, 0x3F,
+                     SA_INCREMENT_NONTRANSMITTED_IV_TRUE);
+    TCGvcidManagedParameters_t ep_vcid = {0, 0x002c, TC_SDLS_EP_VCID, TC_HAS_FECF, TC_HAS_SEGMENT_HDRS, 1024, 1};
+    Crypto_Config_Add_TC_Gvcid_Managed_Parameters(ep_vcid);
+
+    int status = Crypto_Init();
+    ASSERT_EQ(CRYPTO_LIB_SUCCESS, status);
+    SaInterface sa_if = get_sa_interface_inmemory();
+    SecurityAssociation_t *sa;
+    sa_if->sa_get_from_spi(0, &sa);
+    sa->sa_state = SA_OPERATIONAL;
+    sa->est = 0;
+    sa->ast = 0;
+    sa->shivf_len = 0;
+    sa->shsnf_len = 0;
+    sa->shplf_len = 0;
+    sa->stmacf_len = 0;
+
+    char *reply_h = "002c101600000000903868b63252a22c5ce34cdaae75ba";
+    uint8_t *reply_b = NULL;
+    int reply_len = 0;
+    TC_t processed_frame;
+    hex_conversion(reply_h, (char **)&reply_b, &reply_len);
+    sdls_frame.tlv_pdu.hdr.type = PDU_TYPE_COMMAND;
+    status = Crypto_TC_ProcessSecurity(reply_b, &reply_len, &processed_frame);
+    ASSERT_EQ(CRYPTO_LIB_SUCCESS, status);
+    ASSERT_EQ(PDU_TYPE_REPLY, (uint8_t)sdls_frame.tlv_pdu.hdr.type);
+
+    Crypto_Shutdown();
+    free(reply_b);
+}
+
 UTEST_MAIN();

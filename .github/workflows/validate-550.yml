@@ -1,0 +1,32 @@
+name: Validate issue 550
+on:
+  push:
+    branches: [validation/cryptolib-20260926]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          path: validation
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: sylvesterkaczmarek/CryptoLib
+          ref: 41c0d9a47b8d29f6e185919313aa9a6c9e9ffffe
+          fetch-depth: 2
+          path: CryptoLib
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential cmake libgcrypt20-dev libmariadb-dev-compat
+      - name: Test submitted source and original regression
+        run: python3 -u validation/ci/validation-550/verify.py
+      - name: Retain validation logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: issue-550-validation
+          path: validation-logs
